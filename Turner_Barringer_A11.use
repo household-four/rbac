@@ -76,3 +76,30 @@ association DSD between
     Role[*] role d_r2
 end
 
+constraints
+
+context User
+    -- SSD: conflicting roles cannot be assigned to the same user
+    inv SSD_Role:
+        not self.roles->exists(r1, r2 |
+            SSD.allInstances()->exists(link | -- ERROR HERE
+                link.s_r1 = r1 and link.s_r2 = r2))
+
+context Session
+    -- DSD: conflicting roles cannot be activated in the same session
+    inv DSD_Role:
+        not self.roles->exists(r1, r2 |
+            DSD.allInstances()->exists(link |
+            (link.d_r1 = r1 and link.d_r2 = r2)
+            or
+            (link.d_r1 = r2 and link.d_r2 = r1)
+            )
+    )
+
+-- TODO constraint still needed: prerequisite roles (pg 5)
+
+-- TODO constraint still needed: cardinality constraints (pg 6)
+
+-- TODO validate that invariants work as intended when actual objects are created
+
+
