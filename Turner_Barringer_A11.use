@@ -76,30 +76,69 @@ association DSD between
     Role[*] role d_r2
 end
 
+-- New: Prerequisite Role Association
+association PrerequisiteRole between
+    Role[*] role role
+    Role[*] role prereq
+end
+
+-- New: Prerequisite Permission Association
+association PrerequisitePerm between
+    Permission[*] role perm
+    Permission[*] role prereq
+end
+
 constraints
 
 context User
     -- SSD: conflicting roles cannot be assigned to the same user
     inv SSD_Role:
         not self.roles->exists(r1, r2 |
-            SSD.allInstances()->exists(link | -- ERROR HERE
-                link.s_r1 = r1 and link.s_r2 = r2))
+            SSD.allInstances()->exists(link |
+                (link.s_r1 = r1 and link.s_r2 = r2) or
+                (link.s_r1 = r2 and link.s_r2 = r1)
+            )
+        )
 
 context Session
     -- DSD: conflicting roles cannot be activated in the same session
     inv DSD_Role:
         not self.roles->exists(r1, r2 |
             DSD.allInstances()->exists(link |
-            (link.d_r1 = r1 and link.d_r2 = r2)
-            or
-            (link.d_r1 = r2 and link.d_r2 = r1)
+                (link.d_r1 = r1 and link.d_r2 = r2) or
+                (link.d_r1 = r2 and link.d_r2 = r1)
             )
-    )
+        )
 
--- TODO constraint still needed: prerequisite roles (pg 5)
+context Role
+    -- Prerequisite-Role: A user can be assigned to a role only if already assigned to its prerequisites
+    inv PrerequisiteRole:
+        self.users->forAll(u |
+            self.prereq->forAll(pr | u.roles->includes(pr))
+        )
 
--- TODO constraint still needed: cardinality constraints (pg 6)
+    -- Role Hierarchy: a role inherits permissions from its juniors
+    inv RoleHierarchyPermissions:
+        self.permissions->includesAll(self.junior->collect(p | p.permissions)->flatten())
 
--- TODO validate that invariants work as intended when actual objects are created
+context Role
+    -- Prerequisite-Permission: A role can be assigned a permission only if it already has the permission’s prerequisites
+    inv PrerequisitePerm:
+        self.permissions->forAll(p |
+            p.prereq->forAll(pr | self.permissions->includes(pr))
+        )
 
+-- Cardinality: each session must be linked to exactly one user
+context Session
+    inv OneUserPerSession:
+        self.user->size() = 1
 
+-- Cardinality: each user must be assigned at least one role
+context User
+    inv UserHasRole:
+        self.roles->notEmpty()
+
+-- Cardinality: each permission must be linked to at least one operation and one object
+context Permission
+    inv PermissionLinks:
+        self.ops->notEmpty() and self.objects->notEmpty()
