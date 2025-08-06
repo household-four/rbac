@@ -1,0 +1,24 @@
+model rbac
+
+class User {
+    userID : String;
+}
+
+class Session {
+}
+
+class Role {
+    roleName : String;
+}
+
+class Permission {
+}
+
+class Operation {
+    opName : String;
+}
+
+class Obj {
+    objName : String;
+}
+
