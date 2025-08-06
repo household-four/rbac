@@ -1,24 +1,78 @@
 model rbac
 
-class User {
-    userID : String;
-}
+class User 
+attributes
+	userID : String
+end
 
-class Session {
-}
+class Session 
+end
 
-class Role {
-    roleName : String;
-}
+class Role 
+attributes
+	roleName : String
+end
 
-class Permission {
-}
+class Permission 
+end
+	
+class Operation 
+attributes
+	opName : String
+end
 
-class Operation {
-    opName : String;
-}
+class Object
+attributes
+	objName : String
+end
 
-class Obj {
-    objName : String;
-}
+association UserAssignment between
+    User[*] role users
+    Role[*] role roles
+end
+
+association PermAssignment between
+    Role[*] role roles
+    Permission[*] role permissions
+end
+
+association PermOperations between
+    Permission[*] role permissions
+    Operation[*] role ops
+end
+
+association PermObjects between
+    Permission[*] role permissions
+    Object[*] role objects
+end
+
+association ExecuteOn between
+    Object[*] role objects
+    Operation[*] role ops
+end
+
+association UserSessions between
+    User[1] role user
+    Session[*] role sessions
+end
+
+association SessionRoles between
+    Session[*] role sessions
+    Role[*] role roles
+end
+
+association RoleHierarchy between
+    Role[*] role senior
+    Role[*] role junior
+end
+
+association SSD between
+    Role[*] role s_r1
+    Role[*] role s_r2
+end
+
+association DSD between
+    Role[*] role d_r1
+    Role[*] role d_r2
+end
 
