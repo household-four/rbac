@@ -18,10 +18,17 @@ end
 class Role 
 attributes
     roleName : String
+operations
+    checkAccess(op : Operation, obj : Object) : Boolean =
+        self.permissions->exists(p | p.checkAccess(op, obj))
 end
  
 class Permission 
+operations
+    checkAccess(op : Operation, obj : Object) : Boolean =
+        self.ops->includes(op) and self.objects->includes(obj)
 end
+
 class Operation 
 attributes
     opName : String

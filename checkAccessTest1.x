@@ -14,4 +14,5 @@
 !insert (p1, obj1) into PermObjects
 !insert (u1, s1) into UserSessions
 !insert (s1, r1) into SessionRoles
+
 --!s1.checkAccess(o1, obj1)

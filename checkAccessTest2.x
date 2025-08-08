@@ -18,4 +18,5 @@
 !insert (p2, obj_dash) into PermObjects
 !insert (u1, s2) into UserSessions
 !insert (s2, r_mgr) into SessionRoles
+
 -- !s2.checkAccess(o_view, obj_dash)
