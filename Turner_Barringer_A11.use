@@ -1,144 +1,151 @@
 model rbac
-
+ 
 class User 
 attributes
-	userID : String
+    userID : String
 end
-
+ 
 class Session 
+operations
+    checkAccess(op : Operation, obj : Object) : Boolean =
+        self.roles->exists(r |
+            r.permissions->exists(p |
+                p.ops->includes(op) and p.objects->includes(obj)
+            )
+        )
 end
-
+ 
 class Role 
 attributes
-	roleName : String
+    roleName : String
 end
-
+ 
 class Permission 
 end
-	
 class Operation 
 attributes
-	opName : String
+    opName : String
 end
-
+ 
 class Object
 attributes
-	objName : String
+    objName : String
 end
-
+ 
 association UserAssignment between
     User[*] role users
     Role[*] role roles
 end
-
+ 
 association PermAssignment between
     Role[*] role roles
     Permission[*] role permissions
 end
-
+ 
 association PermOperations between
     Permission[*] role permissions
     Operation[*] role ops
 end
-
+ 
 association PermObjects between
     Permission[*] role permissions
     Object[*] role objects
 end
-
+ 
 association ExecuteOn between
     Object[*] role objects
     Operation[*] role ops
 end
-
+ 
 association UserSessions between
     User[1] role user
     Session[*] role sessions
 end
-
+ 
 association SessionRoles between
     Session[*] role sessions
     Role[*] role roles
 end
-
+ 
 association RoleHierarchy between
     Role[*] role senior
     Role[*] role junior
 end
-
+ 
 association SSD between
     Role[*] role s_r1
     Role[*] role s_r2
 end
-
+ 
 association DSD between
     Role[*] role d_r1
     Role[*] role d_r2
 end
-
+ 
 -- New: Prerequisite Role Association
 association PrerequisiteRole between
     Role[*] role role
     Role[*] role prereq
 end
-
+ 
 -- New: Prerequisite Permission Association
 association PrerequisitePerm between
     Permission[*] role perm
     Permission[*] role prereq
 end
-
+ 
 constraints
-
+ 
+-- SSD: conflicting roles cannot be assigned to the same user
 context User
-    -- SSD: conflicting roles cannot be assigned to the same user
-    inv SSD_Role:
-        not self.roles->exists(r1, r2 |
-            SSD.allInstances()->exists(link |
-                (link.s_r1 = r1 and link.s_r2 = r2) or
-                (link.s_r1 = r2 and link.s_r2 = r1)
-            )
+inv SSD_Role:
+    not self.roles->exists(r1, r2 |
+        SSD.allInstances()->exists(link |
+            (link.s_r1 = r1 and link.s_r2 = r2) or
+            (link.s_r1 = r2 and link.s_r2 = r1)
         )
-
+    )
+ 
+-- DSD: conflicting roles cannot be activated in the same session
 context Session
-    -- DSD: conflicting roles cannot be activated in the same session
-    inv DSD_Role:
-        not self.roles->exists(r1, r2 |
-            DSD.allInstances()->exists(link |
-                (link.d_r1 = r1 and link.d_r2 = r2) or
-                (link.d_r1 = r2 and link.d_r2 = r1)
-            )
+inv DSD_Role:
+    not self.roles->exists(r1, r2 |
+        DSD.allInstances()->exists(link |
+            (link.d_r1 = r1 and link.d_r2 = r2) or
+            (link.d_r1 = r2 and link.d_r2 = r1)
         )
-
-context Role
-    -- Prerequisite-Role: A user can be assigned to a role only if already assigned to its prerequisites
-    inv PrerequisiteRole:
-        self.users->forAll(u |
-            self.prereq->forAll(pr | u.roles->includes(pr))
-        )
-
-    -- Role Hierarchy: a role inherits permissions from its juniors
-    inv RoleHierarchyPermissions:
-        self.permissions->includesAll(self.junior->collect(p | p.permissions)->flatten())
-
-context Role
-    -- Prerequisite-Permission: A role can be assigned a permission only if it already has the permission’s prerequisites
-    inv PrerequisitePerm:
-        self.permissions->forAll(p |
-            p.prereq->forAll(pr | self.permissions->includes(pr))
-        )
-
+    )
+ 
 -- Cardinality: each session must be linked to exactly one user
 context Session
-    inv OneUserPerSession:
-        self.user->size() = 1
-
+inv OneUserPerSession:
+    self.user->size() = 1
+ 
 -- Cardinality: each user must be assigned at least one role
 context User
-    inv UserHasRole:
-        self.roles->notEmpty()
-
+inv UserHasRole:
+    self.roles->notEmpty()
+ 
 -- Cardinality: each permission must be linked to at least one operation and one object
 context Permission
-    inv PermissionLinks:
-        self.ops->notEmpty() and self.objects->notEmpty()
+inv PermissionLinks:
+    self.ops->notEmpty() and self.objects->notEmpty()
+ 
+-- Prerequisite-Role: A user can be assigned to a role only if already assigned to its prerequisites
+context Role
+inv PrerequisiteRole:
+    self.users->forAll(u |
+        self.prereq->forAll(pr | u.roles->includes(pr))
+    )
+ 
+-- Role Hierarchy: a role inherits permissions from its juniors
+context Role
+inv RoleHierarchyPermissions:
+    self.permissions->includesAll(self.junior->collect(p | p.permissions)->flatten())
+ 
+-- Prerequisite-Permission: A role can be assigned a permission only if it already has the permission’s prerequisites
+context Role
+inv PrerequisitePerm:
+    self.permissions->forAll(p |
+        p.prereq->forAll(pr | self.permissions->includes(pr))
+    )
