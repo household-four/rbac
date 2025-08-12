@@ -3,7 +3,9 @@ model LRBAC
 class User
 attributes
     userID : String
+    location : String
 operations
+    -- FIX: Updated to match assignment spec (no input parameter, returns new Session)
     CreateSession() : Session
     DeleteSession(s : Session)
     AssignRole(r : Role)
@@ -14,39 +16,43 @@ end
 
 class Session
 attributes
+    location : String
 operations
-    AddActiveRole(r : Role)
-    DropActiveRole(r : Role)
-    CheckAccess(op : Operation, o : Object) : Boolean
-    InvokeOperation(obj : Object, op : Operation)
+    -- CHANGE: compare session.location (String) to Permission.locations (Location) by name
+    checkAccess(op : Operation, obj : Object) : Boolean =
+        self.roles->exists(r |
+            r.permissions->exists(p |
+                p.ops->includes(op) and
+                p.objects->includes(obj) and
+                p.locations->exists(L | L.locName = self.location)
+            )
+        )
 end
 
 class Role
 attributes
     roleName : String
 operations
-    GrantPermission(p : Permission)
-    RevokePermission(p : Permission)
-    CheckAccess(op : Operation, obj : Object)
-    AddAscendant(r : Role)
-    DeleteAscendant(r : Role)
-    AddDescendant(r : Role)
-    DeleteDescendant(r : Role)
-    AddSSDRole(r : Role)
-    DeleteSSDRole(r : Role)
-    AddDSDRole(r : Role)
-    DeleteDSDRole(r : Role)
-    AssignedUsers() : Set(User)
-    AuthorizedUsers() : Set(User)
-    Ascendants() : Set(Role)
-    Descendants() : Set(Role)
-    SSDRoles() : Set(Role)
-    DSDRoles() : Set(Role)
+  GrantPermission(p : Permission)
+  RevokePermission(p : Permission)
+  checkAccess(op : Operation, obj : Object)
+  AddAscendant(r : Role)
+  DeleteAscendant(r : Role)
+  AddDescendant(r : Role)
+  DeleteDescendant(r : Role)
+  AddSSDRole(r : Role)
+  DeleteSSDRole(r : Role)
+  AddDSDRole(r : Role)
+  DeleteDSDRole(r : Role)
+  AssignedUsers() : Set(User)
+  AuthorizedUsers() : Set(User)
+  Ascendants() : Set(Role)
+  Descendants() : Set(Role)
+  SSDRoles() : Set(Role)
+  DSDRoles() : Set(Role)
 end
 
 class Permission
-operations
-    CheckAccess(op : Operation, obj : Object)
 end
 
 class Operation
@@ -84,6 +90,11 @@ association PermObjects between
     Object[*] role objects
 end
 
+association PermLocations between
+    Permission[*] role permissions
+    Location[*] role locations
+end
+
 association ExecuteOn between
     Object[1..*] role objects
     Operation[1..*] role ops
@@ -114,44 +125,22 @@ association DSD between
     Role[*] role d_r2
 end
 
+-- New: Prerequisite Role Association
 association PrerequisiteRole between
     Role[*] role role
     Role[*] role prereq
 end
 
+-- New: Prerequisite Permission Association
 association PrerequisitePerm between
     Permission[*] role perm
     Permission[*] role prereq
 end
 
-association UserLocation between
-    User[1] role user
-    Location[1] role location
-end
-
+-- NOTE: Keeping ObjectLocation; Users/Sessions carry location as String
 association ObjectLocation between
     Object[1] role object
     Location[1] role location
-end
-
-association AssignLocation between
-  Role[*] role assignRoles
-  Location[1..*] role assignLocation
-end
-
-association ActivateLocation between
-  Role[*] role activateRoles
-  Location[1..*] role activateLocation
-end
-
-association PermRoleLoc between
-  Permission[*] role rolePermissions
-  Location[1..*] role roleLocations
-end
-
-association PermObjLoc between
-  Permission[*] role objPermissions
-  Location[1..*] role objLocations
 end
 
 constraints
@@ -191,7 +180,7 @@ context Permission
 inv PermissionLinks:
     self.ops->notEmpty() and self.objects->notEmpty()
 
--- Prerequisite-Role: A user can be assigned to a role only if already assigned to its prerequisites
+-- Prerequisite-Role: a user can be assigned to a role only if already assigned to its prerequisites
 context Role
 inv PrerequisiteRole:
     self.users->forAll(u |
@@ -203,33 +192,33 @@ context Role
 inv RoleHierarchyPermissions:
     self.permissions->includesAll(self.junior->collect(p | p.permissions)->flatten())
 
--- Prerequisite-Permission: A role can be assigned a permission only if it already has the permission’s prerequisites
+-- Prerequisite-Permission: a role can be assigned a permission only if it already has the permission’s prerequisites
 context Role
 inv PrerequisitePerm:
     self.permissions->forAll(p |
         p.prereq->forAll(pr | self.permissions->includes(pr))
     )
 
--- CreateSession (given)
+-- FIX: Corrected CreateSession postcondition to match assignment spec and copy location
 context User::CreateSession() : Session
 post:
     result.oclIsNew() and
-    self.sessions->includes(result)
+    self.sessions->includes(result) and
+    result.location = self.location
 
--- Check Access
-context Session::CheckAccess(op : Operation, o : Object) : Boolean
-pre validOp:
-  Operation.allInstances()->includes(op)
-pre validObj:
-  Object.allInstances()->includes(o)
+-- ===== Location-aware invariants (new) =====
 
-post def:
-  result =
-    self.roles->exists(r |
-        r.permissions->exists(p |
-            p.ops->includes(op) and
-            p.objects->includes(o) and
-            p.roleLocations->includes(self.user.location) and
-            p.objLocations->includes(o.location)
-        )
-    )
+-- CHANGE: session must share the same location value as its user
+context Session
+inv SessionLocationMatchesUser:
+  self.user.location = self.location
+
+-- CHANGE: a permission's allowed locations must cover all governed objects' locations
+context Permission
+inv PermLocationsCoverObjects:
+  self.objects->forAll(o | self.locations->includes(o.location))
+
+-- Every permission must declare at least one location
+context Permission
+inv PermHasLocation:
+  self.locations->notEmpty()
