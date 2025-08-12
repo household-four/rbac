@@ -11,16 +11,7 @@ end
 class Session
 attributes
 operations
-    CheckAccess(op : Operation, o : Object) : Boolean =
-        self.roles->exists(r |
-            r.permissions->exists(p |
-                p.ops->includes(op) and
-                p.objects->includes(o) and
-
-                p.roleLocations->includes(self.user.location) and
-                p.objLocations->includes(o.location)
-            )
-        )
+    CheckAccess(op : Operation, o : Object) : Boolean
 end
 
 class Role
@@ -198,3 +189,21 @@ context User::CreateSession() : Session
 post:
     result.oclIsNew() and
     self.sessions->includes(result)
+
+
+context Session::CheckAccess(op : Operation, o : Object) : Boolean
+pre validOp:
+  Operation.allInstances()->includes(op)
+pre validObj:
+  Object.allInstances()->includes(o)
+
+post def:
+  result =
+    self.roles->exists(r |
+        r.permissions->exists(p |
+            p.ops->includes(op) and
+            p.objects->includes(o) and
+            p.roleLocations->includes(self.user.location) and
+            p.objLocations->includes(o.location)
+        )
+    )
