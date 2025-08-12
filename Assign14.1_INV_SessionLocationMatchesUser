@@ -1,0 +1,98 @@
+-- =======================
+-- LOCATION-AWARE CHECKACCESS TEST CASES
+-- =======================
+
+-- ==== Setup Common Objects ====
+!create u1 : User
+!set u1.userID := 'alice'
+!set u1.location := 'Office'
+
+!create loc1 : Location
+!set loc1.locName := 'Office'
+
+!create loc2 : Location
+!set loc2.locName := 'Remote'
+
+!create opRead : Operation
+!set opRead.opName := 'read'
+
+!create opWrite : Operation
+!set opWrite.opName := 'write'
+
+!create fileA : Object
+!set fileA.objName := 'fileA'
+
+!create fileB : Object
+!set fileB.objName := 'fileB'
+
+!create perm1 : Permission
+!create perm2 : Permission
+
+-- Link permissions to operations, objects, and locations
+!insert (perm1, opRead) into PermOperations
+!insert (perm1, fileA) into PermObjects
+!insert (perm1, loc1) into PermLocations
+
+!insert (perm2, opWrite) into PermOperations
+!insert (perm2, fileB) into PermObjects
+!insert (perm2, loc2) into PermLocations
+
+-- Create roles
+!create rAdmin : Role
+!set rAdmin.roleName := 'admin'
+
+!create rEditor : Role
+!set rEditor.roleName := 'editor'
+
+-- Assign permissions to roles
+!insert (rAdmin, perm1) into PermAssignment
+!insert (rEditor, perm2) into PermAssignment
+
+-- Assign role to user
+!insert (u1, rAdmin) into UserAssignment
+!insert (u1, rEditor) into UserAssignment
+
+-- Create and link objects to locations
+!insert (fileA, loc1) into ObjectLocation
+!insert (fileB, loc2) into ObjectLocation
+
+-- ==== Test Case 1 (GRANTED) ====
+-- User in Office has 'read' on fileA (Office)
+!op result1 := u1.CreateSession()
+!insert (result1, rAdmin) into SessionRoles
+!set result1.location := 'Office'
+eval result1.checkAccess(opRead, fileA)
+
+-- ==== Test Case 2 (GRANTED) ====
+-- User in Remote has 'write' on fileB (Remote)
+!op result2 := u1.CreateSession()
+!insert (result2, rEditor) into SessionRoles
+!set result2.location := 'Remote'
+eval result2.checkAccess(opWrite, fileB)
+
+-- ==== Test Case 3 (GRANTED) ====
+-- User in Office can still 'read' fileA (same location match)
+!op result3 := u1.CreateSession()
+!insert (result3, rAdmin) into SessionRoles
+!set result3.location := 'Office'
+eval result3.checkAccess(opRead, fileA)
+
+-- ==== Test Case 4 (DENIED) ====
+-- Location mismatch: trying to 'write' fileB while in Office
+!op result4 := u1.CreateSession()
+!insert (result4, rEditor) into SessionRoles
+!set result4.location := 'Office'
+eval result4.checkAccess(opWrite, fileB)
+
+-- ==== Test Case 5 (DENIED) ====
+-- Permission mismatch: trying to 'write' fileA (Office) with only 'read' permission
+!op result5 := u1.CreateSession()
+!insert (result5, rAdmin) into SessionRoles
+!set result5.location := 'Office'
+eval result5.checkAccess(opWrite, fileA)
+
+-- ==== Test Case 6 (DENIED) ====
+-- Role mismatch: no roles activated in session
+!op result6 := u1.CreateSession()
+!set result6.location := 'Office'
+eval result6.checkAccess(opRead, fileA)
