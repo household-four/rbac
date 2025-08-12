@@ -4,22 +4,49 @@ class User
 attributes
     userID : String
 operations
-    -- FIX: Updated to match assignment spec (no input parameter, returns new Session)
     CreateSession() : Session
+    DeleteSession(s : Session)
+    AssignRole(r : Role)
+    DeassignRole(r : Role)
+    AssignedRoles() : Set(Role)
+    AuthorizedRoles() : Set(Role)
 end
 
 class Session
 attributes
 operations
+    AddActiveRole(r : Role)
+    DropActiveRole(r : Role)
     CheckAccess(op : Operation, o : Object) : Boolean
+    InvokeOperation(obj : Object, op : Operation)
 end
 
 class Role
 attributes
     roleName : String
+operations
+    GrantPermission(p : Permission)
+    RevokePermission(p : Permission)
+    CheckAccess(op : Operation, obj : Object)
+    AddAscendant(r : Role)
+    DeleteAscendant(r : Role)
+    AddDescendant(r : Role)
+    DeleteDescendant(r : Role)
+    AddSSDRole(r : Role)
+    DeleteSSDRole(r : Role)
+    AddDSDRole(r : Role)
+    DeleteDSDRole(r : Role)
+    AssignedUsers() : Set(User)
+    AuthorizedUsers() : Set(User)
+    Ascendants() : Set(Role)
+    Descendants() : Set(Role)
+    SSDRoles() : Set(Role)
+    DSDRoles() : Set(Role)
 end
 
 class Permission
+operations
+    CheckAccess(op : Operation, obj : Object)
 end
 
 class Operation
@@ -87,13 +114,11 @@ association DSD between
     Role[*] role d_r2
 end
 
--- New: Prerequisite Role Association
 association PrerequisiteRole between
     Role[*] role role
     Role[*] role prereq
 end
 
--- New: Prerequisite Permission Association
 association PrerequisitePerm between
     Permission[*] role perm
     Permission[*] role prereq
@@ -185,12 +210,13 @@ inv PrerequisitePerm:
         p.prereq->forAll(pr | self.permissions->includes(pr))
     )
 
+-- CreateSession (given)
 context User::CreateSession() : Session
 post:
     result.oclIsNew() and
     self.sessions->includes(result)
 
-
+-- Check Access
 context Session::CheckAccess(op : Operation, o : Object) : Boolean
 pre validOp:
   Operation.allInstances()->includes(op)
