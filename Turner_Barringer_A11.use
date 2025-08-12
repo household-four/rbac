@@ -3,7 +3,6 @@ model LRBAC
 class User
 attributes
     userID : String
-    location : String
 operations
     -- FIX: Updated to match assignment spec (no input parameter, returns new Session)
     CreateSession() : Session
@@ -11,14 +10,15 @@ end
 
 class Session
 attributes
-    location : String
 operations
-    checkAccess(op : Operation, obj : Object) : Boolean =
+    CheckAccess(op : Operation, o : Object) : Boolean =
         self.roles->exists(r |
             r.permissions->exists(p |
                 p.ops->includes(op) and
-                p.objects->includes(obj) and
-                p.locations->includes(self.location)
+                p.objects->includes(o) and
+
+                p.roleLocations->includes(self.user.location) and
+                p.objLocations->includes(o.location)
             )
         )
 end
@@ -64,11 +64,6 @@ end
 association PermObjects between
     Permission[*] role permissions
     Object[*] role objects
-end
-
-association PermLocations between
-    Permission[*] role permissions
-    Location[*] role locations
 end
 
 association ExecuteOn between
@@ -118,14 +113,29 @@ association UserLocation between
     Location[1] role location
 end
 
-association SessionLocation between
-    Session[1] role session
-    Location[1] role location
-end
-
 association ObjectLocation between
     Object[1] role object
     Location[1] role location
+end
+
+association AssignLocation between
+  Role[*] role assignRoles
+  Location[1..*] role assignLocation
+end
+
+association ActivateLocation between
+  Role[*] role activateRoles
+  Location[1..*] role activateLocation
+end
+
+association PermRoleLoc between
+  Permission[*] role rolePermissions
+  Location[1..*] role roleLocations
+end
+
+association PermObjLoc between
+  Permission[*] role objPermissions
+  Location[1..*] role objLocations
 end
 
 constraints
@@ -184,9 +194,7 @@ inv PrerequisitePerm:
         p.prereq->forAll(pr | self.permissions->includes(pr))
     )
 
--- FIX: Corrected CreateSession postcondition to match assignment spec
 context User::CreateSession() : Session
 post:
     result.oclIsNew() and
-    self.sessions->includes(result) and
-    result.location = self.location
+    self.sessions->includes(result)
