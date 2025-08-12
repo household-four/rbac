@@ -1,0 +1,19 @@
+-- ===== PASS: PermHasLocation =====
+!create L_has_ok : Location
+!set L_has_ok.locName := 'HQ'
+
+!create p_has_ok : Permission
+!insert (p_has_ok, L_has_ok) into PermLocations
+
+-- Optional eval (should be true):
+eval p_has_ok.locations->notEmpty()
+-- Invariants window: Permission::PermHasLocation = TRUE
+
+
+-- ===== FAIL: PermHasLocation =====
+!create p_has_bad : Permission
+-- No PermLocations link on purpose
+
+-- Optional eval (should be false):
+eval p_has_bad.locations->notEmpty()
+-- Invariants window: Permission::PermHasLocation = FALSE
