@@ -1,61 +1,37 @@
-model rbac
+model LRBAC
 
-class User 
+class User
 attributes
     userID : String
+    location : String
 operations
-  CreateSession(s : Session)
-  DeleteSession(s : Session)
-  AssignRole(r : Role)
-  DeassignRole(r : Role)
-  AssignedRoles() : Set(Role)
-  AuthorizedRoles() : Set(Role)
+    -- FIX: Updated to match assignment spec (no input parameter, returns new Session)
+    CreateSession() : Session
 end
 
-class Session 
+class Session
+attributes
+    location : String
 operations
-    AddActiveRole(r : Role)
-    DropActiveRole(r : Role)
     checkAccess(op : Operation, obj : Object) : Boolean =
         self.roles->exists(r |
             r.permissions->exists(p |
-                p.ops->includes(op) and p.objects->includes(obj)
+                p.ops->includes(op) and
+                p.objects->includes(obj) and
+                p.locations->includes(self.location)
             )
         )
-  InvokeOperation(obj : Object, op : Operation)
 end
 
-class Role 
+class Role
 attributes
     roleName : String
-operations
-  GrantPermission(p : Permission)
-  RevokePermission(p : Permission)
-  checkAccess(op : Operation, obj : Object) : Boolean =
-        self.permissions->exists(p | p.checkAccess(op, obj))
-  AddAscendant(r : Role)
-  DeleteAscendant(r : Role)
-  AddDescendant(r : Role)
-  DeleteDescendant(r : Role)
-  AddSSDRole(r : Role)
-  DeleteSSDRole(r : Role)
-  AddDSDRole(r : Role)
-  DeleteDSDRole(r : Role)
-  AssignedUsers() : Set(User)
-  AuthorizedUsers() : Set(User)
-  Ascendants() : Set(Role)
-  Descendants() : Set(Role)
-  SSDRoles() : Set(Role)
-  DSDRoles() : Set(Role)
 end
 
-class Permission 
-operations
-    checkAccess(op : Operation, obj : Object) : Boolean =
-        self.ops->includes(op) and self.objects->includes(obj)
+class Permission
 end
 
-class Operation 
+class Operation
 attributes
     opName : String
 end
@@ -63,6 +39,11 @@ end
 class Object
 attributes
     objName : String
+end
+
+class Location
+attributes
+    locName : String
 end
 
 association UserAssignment between
@@ -85,9 +66,14 @@ association PermObjects between
     Object[*] role objects
 end
 
+association PermLocations between
+    Permission[*] role permissions
+    Location[*] role locations
+end
+
 association ExecuteOn between
-  Object[1..*] role objects
-  Operation[1..*] role ops
+    Object[1..*] role objects
+    Operation[1..*] role ops
 end
 
 association UserSessions between
@@ -125,6 +111,21 @@ end
 association PrerequisitePerm between
     Permission[*] role perm
     Permission[*] role prereq
+end
+
+association UserLocation between
+    User[1] role user
+    Location[1] role location
+end
+
+association SessionLocation between
+    Session[1] role session
+    Location[1] role location
+end
+
+association ObjectLocation between
+    Object[1] role object
+    Location[1] role location
 end
 
 constraints
@@ -182,3 +183,10 @@ inv PrerequisitePerm:
     self.permissions->forAll(p |
         p.prereq->forAll(pr | self.permissions->includes(pr))
     )
+
+-- FIX: Corrected CreateSession postcondition to match assignment spec
+context User::CreateSession() : Session
+post:
+    result.oclIsNew() and
+    self.sessions->includes(result) and
+    result.location = self.location
