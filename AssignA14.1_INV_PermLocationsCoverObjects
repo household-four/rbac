@@ -1,0 +1,32 @@
+-- ===== PASS: PermLocationsCoverObjects =====
+!create L_cov_ok : Location
+!set L_cov_ok.locName := 'Office'
+
+!create obj_cov_ok : Object
+!set obj_cov_ok.objName := 'file_cov_ok'
+!insert (obj_cov_ok, L_cov_ok) into ObjectLocation
+
+!create p_cov_ok : Permission
+!insert (p_cov_ok, obj_cov_ok) into PermObjects
+!insert (p_cov_ok, L_cov_ok) into PermLocations
+
+-- Optional eval (should be true):
+eval p_cov_ok.objects->forAll(o | p_cov_ok.locations->includes(o.location))
+-- Invariants window: Permission::PermLocationsCoverObjects = TRUE
+
+
+-- ===== FAIL: PermLocationsCoverObjects =====
+!create L_cov_bad : Location
+!set L_cov_bad.locName := 'Remote'
+
+!create obj_cov_bad : Object
+!set obj_cov_bad.objName := 'file_cov_bad'
+!insert (obj_cov_bad, L_cov_bad) into ObjectLocation
+
+!create p_cov_bad : Permission
+!insert (p_cov_bad, obj_cov_bad) into PermObjects
+-- Intentionally do NOT add (p_cov_bad, L_cov_bad) to PermLocations
+
+-- Optional eval (should be false):
+eval p_cov_bad.objects->forAll(o | p_cov_bad.locations->includes(o.location))
+-- Invariants window: Permission::PermLocationsCoverObjects = FALSE
